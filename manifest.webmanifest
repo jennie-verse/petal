@@ -1,0 +1,27 @@
+{
+  "name": "Petal Reader",
+  "short_name": "Petal",
+  "description": "A private, customizable EPUB reader with local notes and Obsidian export.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fffdf8",
+  "theme_color": "#fffdf8",
+  "categories": ["books", "education", "productivity"],
+  "icons": [
+    {
+      "src": "./assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
