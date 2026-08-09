@@ -1,4 +1,4 @@
-const VERSION = "petal-reader-v1.2.0";
+const VERSION = "petal-reader-v1.3.0";
 const SHELL = [
   "./",
   "./index.html",
@@ -13,7 +13,9 @@ const SHELL = [
   "./assets/js/icons.js",
   "./assets/js/hash-worker.js",
   "./assets/images/empty-library.png",
-  "./assets/images/secret-garden-cover.png",
+  // secret-garden-cover.png is deliberately NOT precached: it is only ever shown in
+  // demo mode (?demo / #demo), so every real install would download it for nothing.
+  // The fetch handler still caches it on demand if demo mode is opened.
   "./assets/icons/icon-180.png",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
@@ -43,28 +45,37 @@ const OPTIONAL_SHELL = [
   "./assets/fonts/ComicNeue-Bold.woff2"
 ];
 
+async function fillShell(cache) {
+  await cache.addAll(SHELL);
+  await Promise.all(OPTIONAL_SHELL.map(url => cache.add(url).catch(() => {})));
+}
+
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(VERSION).then(async cache => {
-    await cache.addAll(SHELL);
-    await Promise.all(OPTIONAL_SHELL.map(url => cache.add(url).catch(() => {})));
-  }));
+  event.waitUntil(caches.open(VERSION).then(fillShell));
 });
 
+// Old-cache cleanup belongs here, not in a message from the page. Earlier versions
+// posted CLEAN_OLD_CACHES right after register(), which reaches the OUTGOING worker
+// — it then deletes every cache that is not its own VERSION, including the one this
+// version is filling at that same moment. Doing it in activate() runs after install
+// has finished and after the old worker is gone, so there is nothing to race with.
 self.addEventListener("activate", event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    // Repairs an install whose cache was dropped by that race on an earlier upgrade.
+    if ((await cache.keys()).length < SHELL.length) await fillShell(cache).catch(() => {});
+
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter(key => key.startsWith("petal-reader-") && key !== VERSION)
+        .map(key => caches.delete(key))
+    );
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener("message", event => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
-  if (event.data?.type === "CLEAN_OLD_CACHES") {
-    event.waitUntil(
-      caches.keys().then(keys => Promise.all(
-        keys
-          .filter(key => key.startsWith("petal-reader-") && key !== VERSION)
-          .map(key => caches.delete(key))
-      ))
-    );
-  }
 });
 
 self.addEventListener("fetch", event => {

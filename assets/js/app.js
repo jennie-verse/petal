@@ -136,12 +136,21 @@ async function refresh() {
 }
 
 function statusStrip() {
+  // An empty library has nothing to back up and nothing to lose, so the warnings
+  // below would only be noise on a first launch. Show the strip once books exist.
+  if (!state.books.length) return "";
+
   const backupText = state.lastBackup
     ? `Backup saved ${relativeDays(state.lastBackup)}`
     : "No backup yet";
+  // The second item reports whether the browser granted persistent storage — that is
+  // a different thing from backup age, so it gets its own wording.
+  const storageText = state.storage.persisted
+    ? "Storage protected"
+    : "Storage can be evicted";
   return `<div class="status-strip" role="status">
     <div class="status-item ${state.lastBackup ? "good" : "warn"}">${icon(state.lastBackup ? "shield" : "warning")}<span>${escapeHtml(backupText)}</span></div>
-    <div class="status-item ${state.storage.persisted ? "good" : "warn"}">${icon(state.storage.persisted ? "shield" : "database")}<span>${state.storage.persisted ? "Storage protected" : "Regular backup needed"}</span></div>
+    <div class="status-item ${state.storage.persisted ? "good" : "warn"}">${icon(state.storage.persisted ? "shield" : "database")}<span>${escapeHtml(storageText)}</span></div>
   </div>`;
 }
 
@@ -893,7 +902,7 @@ async function renderBackup() {
   app.innerHTML = `<div class="app screen backup-screen">
     <header class="utility-header"><button class="icon-button" data-action="library" aria-label="Back to library">${icon("back")}</button><h1>Backup &amp; storage</h1><span></span></header>
     <main id="main" class="utility-main">
-      <section class="storage-summary">${icon("shield")}<div><h2>${state.storage.persisted ? "Storage protected" : "Regular backup needed"}</h2><p>Last backup · ${formatDate(state.lastBackup)}</p><p>${formatBytes(state.storage.usage)} of ${formatBytes(state.storage.quota)} used</p></div></section>
+      <section class="storage-summary">${icon("shield")}<div><h2>${state.storage.persisted ? "Storage protected" : "Storage can be evicted"}</h2><p>${state.storage.persisted ? "This device keeps your library even when space runs low." : "iOS may clear this library if storage runs low — keep a backup."}</p><p>Last backup · ${formatDate(state.lastBackup)}</p><p>${formatBytes(state.storage.usage)} of ${formatBytes(state.storage.quota)} used</p></div></section>
       <section class="utility-section"><h2>Full backup</h2><p>Books are not included</p><div class="button-row">
         <button class="button secondary" data-action="export-json">${icon("export")}Export JSON</button>
         <button class="button secondary" data-action="import-json">${icon("import")}Import JSON</button>
@@ -1183,7 +1192,8 @@ async function start() {
   ) {
     try {
       const registration = await navigator.serviceWorker.register("./service-worker.js");
-      registration.active?.postMessage({ type: "CLEAN_OLD_CACHES" });
+      // Cache cleanup moved into the worker's activate handler — asking the outgoing
+      // worker to clean up from here raced with the incoming worker's install.
       const offerUpdate = worker => {
         state.waitingWorker = worker;
         if (document.querySelector(".update-banner")) return;
