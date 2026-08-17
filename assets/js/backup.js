@@ -4,10 +4,10 @@ import {
 } from "./db.js";
 import { ACCEPTED_FONT_VALUES, SETTING_LIMITS } from "./fonts.js";
 
-const RECORD_STORES = ["books", "readingStates", "annotations", "bookmarks", "vocabulary"];
+const RECORD_STORES = ["books", "readingStates", "readingSessions", "annotations", "bookmarks", "vocabulary"];
 const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.4.0";
 const PREFERENCE_RULES = {
   preset: ["original", "comfortable", "focus", "large", "custom"],
   // Includes retired v1.0.1 values on purpose: validation is permissive so old
@@ -51,7 +51,7 @@ export async function makeBackupPackage() {
   data.preferences = await getPreferences();
   return {
     format: "petal-reader-backup",
-    schemaVersion: 1,
+    schemaVersion: 2,
     appVersion: APP_VERSION,
     exportId: uuid(),
     exportedAt: now(),
@@ -83,8 +83,11 @@ export async function readBackupFile(file) {
 
 export function validateBackup(value) {
   if (!value || value.format !== "petal-reader-backup") throw new Error("This is not a Petal Reader backup. Nothing was changed.");
-  if (value.schemaVersion !== 1) throw new Error("This backup version is not supported. Nothing was changed.");
+  if (![1, 2].includes(value.schemaVersion)) throw new Error("This backup version is not supported. Nothing was changed.");
   if (!value.data || typeof value.data !== "object") throw new Error("This backup has no data section.");
+  // v1 backups predate measured reading sessions. They remain valid and are
+  // upgraded in memory without inventing unavailable history.
+  if (value.schemaVersion === 1 && !Array.isArray(value.data.readingSessions)) value.data.readingSessions = [];
   const preferences = value.data.preferences;
   if (!preferences || typeof preferences !== "object" || Array.isArray(preferences)) {
     throw new Error("Backup reader preferences are missing or invalid.");
@@ -138,7 +141,7 @@ export function validateBackup(value) {
     }
   }
   const bookIds = new Set(value.data.books.map(book => book.id));
-  for (const store of ["readingStates", "annotations", "bookmarks", "vocabulary"]) {
+  for (const store of ["readingStates", "readingSessions", "annotations", "bookmarks", "vocabulary"]) {
     for (const record of value.data[store]) {
       if (!bookIds.has(record.bookId)) record.orphaned = true;
     }

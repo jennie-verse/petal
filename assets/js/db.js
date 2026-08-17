@@ -1,7 +1,7 @@
 import { READER_FONT_VALUES, DEFAULT_FONT, DEFAULT_FONT_SIZE, SETTING_LIMITS } from "./fonts.js";
 
 const DB_NAME = "petal-reader";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 // Deliberately narrower than backup.js: unknown or retired font values are
 // migrated to DEFAULT_FONT here rather than rejected.
 const READER_FONTS = new Set(READER_FONT_VALUES);
@@ -75,6 +75,7 @@ export function openDatabase() {
         books: { keyPath: "id", indexes: [["lastOpenedAt", "lastOpenedAt"], ["updatedAt", "updatedAt"], ["activeFileHash", "activeFileHash"]] },
         publicationFiles: { keyPath: "fileHash", indexes: [["bookId", "bookId"]] },
         readingStates: { keyPath: "bookId", indexes: [["lastReadAt", "lastReadAt"]] },
+        readingSessions: { keyPath: "id", indexes: [["bookId", "bookId"], ["date", "date"], ["updatedAt", "updatedAt"]] },
         annotations: { keyPath: "id", indexes: [["bookId", "bookId"], ["bookKind", ["bookId", "kind"]], ["updatedAt", "updatedAt"], ["deletedAt", "deletedAt"]] },
         bookmarks: { keyPath: "id", indexes: [["bookId", "bookId"], ["updatedAt", "updatedAt"], ["deletedAt", "deletedAt"]] },
         vocabulary: { keyPath: "id", indexes: [["bookId", "bookId"], ["word", "word"], ["updatedAt", "updatedAt"], ["deletedAt", "deletedAt"]] },
@@ -244,6 +245,16 @@ export async function saveReadingState(bookId, patch) {
   });
 }
 
+export async function saveReadingSession(session) {
+  return put("readingSessions", session);
+}
+
+export async function getReadingSessions(bookId) {
+  return bookId
+    ? getAll("readingSessions", "bookId", bookId)
+    : getAll("readingSessions");
+}
+
 export async function getBookRecords(bookId) {
   const [annotations, bookmarks, vocabulary] = await Promise.all([
     getAll("annotations", "bookId", bookId),
@@ -326,7 +337,7 @@ export async function deleteBookCopy(bookId) {
 export async function deleteBookAndRecords(bookId) {
   const db = await openDatabase();
   const book = await get("books", bookId);
-  const transaction = db.transaction(["books", "publicationFiles", "readingStates", "annotations", "bookmarks", "vocabulary"], "readwrite");
+  const transaction = db.transaction(["books", "publicationFiles", "readingStates", "readingSessions", "annotations", "bookmarks", "vocabulary"], "readwrite");
   transaction.objectStore("books").put({ ...book, deletedAt: now(), updatedAt: now(), revision: (book.revision || 0) + 1 });
   if (book?.activeFileHash) transaction.objectStore("publicationFiles").delete(book.activeFileHash);
   const readingRequest = transaction.objectStore("readingStates").get(bookId);
@@ -339,7 +350,7 @@ export async function deleteBookAndRecords(bookId) {
       revision: (reading.revision || 0) + 1
     });
   };
-  for (const storeName of ["annotations", "bookmarks", "vocabulary"]) {
+  for (const storeName of ["readingSessions", "annotations", "bookmarks", "vocabulary"]) {
     const index = transaction.objectStore(storeName).index("bookId");
     const request = index.openCursor(IDBKeyRange.only(bookId));
     request.onsuccess = () => {
@@ -391,7 +402,15 @@ export async function resetAllLocalData() {
   const transaction = db.transaction(storeNames, "readwrite");
   for (const storeName of storeNames) transaction.objectStore(storeName).clear();
   await transactionDone(transaction);
-  localStorage.clear();
+  // Petal shares sync.token.v1 with the other PWAs. A global clear used to
+  // remove that credential (and unrelated app preferences) unexpectedly.
+  // Reset only storage owned by Petal; shared authentication stays intact.
+  for (let index = localStorage.length - 1; index >= 0; index--) {
+    const key = localStorage.key(index);
+    if (key && (key.startsWith("petal.") || key.startsWith("petal-"))) {
+      localStorage.removeItem(key);
+    }
+  }
   if ("caches" in globalThis) {
     const keys = await caches.keys();
     await Promise.all(keys.filter(key => key.startsWith("petal-reader-")).map(key => caches.delete(key)));

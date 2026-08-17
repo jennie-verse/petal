@@ -6,6 +6,12 @@ import {
   getMeta, setMeta, now, reconnectPublication, deleteBookCopy, deleteBookAndRecords,
   resetAllLocalData
 } from "./db.js";
+import {
+  backfillJournal, beginReadingSession, finishReadingSession, getJournalContext,
+  getJournalState, handleVisibility, noteReaderActivity, onJournalState,
+  queueArtifact, queueArtifactDeletion, refreshJournalState, saveJournalConnection, saveJournalToken,
+  queueReadingSession, toggleJournal
+} from "./journal.js";
 import { inspectEpub, ReaderEngineAdapter } from "./reader-engine.js";
 import { lookup, formatPartOfSpeech } from "./dictionary.js";
 import {
@@ -162,6 +168,7 @@ function relativeDays(value) {
 async function renderLibrary() {
   if (state.reader) {
     await flushReadingState();
+    await finishReadingSession("closed");
     await state.reader.close();
     state.reader = null;
   }
@@ -302,6 +309,7 @@ async function importFiles(files) {
 async function renderReader(bookId) {
   if (state.reader) {
     await flushReadingState();
+    await finishReadingSession("switch");
     await state.reader.close();
     state.reader = null;
   }
@@ -355,22 +363,24 @@ async function renderReader(bookId) {
   state.reader.addEventListener("annotation-warning", async event => {
     const annotation = await get("annotations", event.detail.annotationId);
     if (annotation) {
-      await addAnnotation({
+      const updated = await addAnnotation({
         ...annotation,
         unresolved: true,
         revision: (annotation.revision || 0) + 1,
         updatedAt: now()
       });
+      await queueArtifact("annotations", updated, state.currentBook, "updated");
     }
     toast("A saved annotation needs reconnection review.");
   });
   state.reader.addEventListener("annotation-recovered", async event => {
-    await addAnnotation({
+    const updated = await addAnnotation({
       ...event.detail,
       unresolved: false,
       revision: (event.detail.revision || 0) + 1,
       updatedAt: now()
     });
+    await queueArtifact("annotations", updated, state.currentBook, "updated");
   });
   state.reader.addEventListener("page-tap", event => {
     const zone = event.detail.zone;
@@ -380,6 +390,7 @@ async function renderReader(bookId) {
   });
   await state.reader.open(publication, readingState?.locator, state.preferences, records.annotations);
   await updateBook(book.id, { lastOpenedAt: now() });
+  await beginReadingSession(book, readingState || {});
 }
 
 async function onRelocate(event) {
@@ -410,6 +421,7 @@ async function onRelocate(event) {
     chapterLabel: location.chapterLabel,
     progression: progress
   });
+  await noteReaderActivity({ progression: progress, chapterLabel: location.chapterLabel });
 }
 
 function scheduleReadingState(patch) {
@@ -482,13 +494,15 @@ async function createHighlight(kind = "highlight", note = "", semanticColor = "c
     semanticColor,
     note
   });
+  await queueArtifact("annotations", annotation, state.currentBook, "created");
   await state.reader.addAnnotation(annotation);
   clearSelection();
   toast(kind === "note" ? "Note saved." : "Highlight saved.");
 }
 
 function overlay(html, className = "sheet-backdrop") {
-  const root = document.querySelector("#overlay-root") || app;
+  const root = document.querySelector("#overlay-root")
+    || app.appendChild(Object.assign(document.createElement("div"), { id: "overlay-root" }));
   state.overlayOpener = document.activeElement;
   root.innerHTML = `<div class="${className}" data-overlay>${html}</div>`;
   for (const sibling of [...root.parentElement.children]) {
@@ -821,7 +835,7 @@ async function saveWord(index = null) {
   try { data = JSON.parse(dialog?.dataset.dictionary || "{}"); } catch {}
   const sense = index == null ? null : data.definitions?.[index];
   const selection = state.currentSelection;
-  await addVocabulary({
+  const vocabulary = await addVocabulary({
     bookId: state.currentBook.id,
     word: data.result?.matched || data.result?.word || selection.exact,
     partOfSpeech: formatPartOfSpeech(sense?.p),
@@ -840,6 +854,7 @@ async function saveWord(index = null) {
       textQuote: { exact: selection.exact, prefix: selection.prefix, suffix: selection.suffix }
     }
   });
+  await queueArtifact("vocabulary", vocabulary, state.currentBook, "created");
   closeOverlay();
   clearSelection();
   toast("Word saved to Vocabulary.");
@@ -869,7 +884,7 @@ function openNoteEditor(existing = null) {
 
 async function addCurrentBookmark() {
   if (!state.currentLocation) return;
-  await addBookmark({
+  const bookmark = await addBookmark({
     bookId: state.currentBook.id,
     locator: {
       cfi: state.currentLocation.cfi,
@@ -878,7 +893,44 @@ async function addCurrentBookmark() {
       progression: state.currentLocation.progression
     }
   });
+  await queueArtifact("bookmarks", bookmark, state.currentBook, "created");
   toast("Bookmark added.");
+}
+
+function journalDateRange() {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 92);
+  const value = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return { from: value(from), to: value(to) };
+}
+
+async function openJournalSettings() {
+  const [journal, context] = await Promise.all([refreshJournalState(), getJournalContext()]);
+  const range = journalDateRange();
+  const status = journal.enabled
+    ? `${journal.status || "ready"}${journal.pendingCount ? ` · ${journal.pendingCount} pending` : ""}`
+    : "Off — reading stays entirely local";
+  const body = `<div class="settings-group">
+      <h3>Private journal connection</h3>
+      <label class="setting-row" for="journal-token"><span><strong>GitHub token</strong><small>${journal.hasToken ? "Stored securely in this browser; value is never shown" : "Required to write to your private webapp-data repository"}</small></span></label>
+      <input id="journal-token" class="note-field" type="password" autocomplete="off" placeholder="${journal.hasToken ? "Token already stored" : "Paste token"}" aria-describedby="journal-privacy">
+      <label class="setting-row" for="journal-device"><span><strong>Device name</strong><small>Creates a stable context for this Petal installation</small></span></label>
+      <input id="journal-device" class="note-field" value="${escapeHtml(context.label)}" placeholder="iPhone Home Screen">
+      <button class="button secondary" data-action="journal-save-connection">Save connection</button>
+    </div>
+    <div class="settings-group">
+      <div class="setting-row"><span><strong>Include in journal</strong><small>Default off; independent from every other app setting</small></span><button class="switch" data-action="journal-toggle" role="switch" aria-checked="${journal.enabled}" aria-label="Include Petal in journal"></button></div>
+      <div class="notice">${icon("warning")}<span>Petal sends book titles, reading progress, highlights, quotations, notes, bookmarks, and saved vocabulary only to your private webapp-data repository.</span></div>
+      <p id="journal-privacy" class="dictionary-meta" role="status">Status: ${escapeHtml(status)}</p>
+    </div>
+    <div class="settings-group">
+      <h3>Import past records</h3>
+      <p class="dictionary-meta">Manual only. Petal can recover saved artifacts and the latest reading position, but not past reading time or progress history.</p>
+      <div class="journal-range"><label>From<input id="journal-from" class="note-field" type="date" value="${range.from}"></label><label>To<input id="journal-to" class="note-field" type="date" value="${range.to}"></label></div>
+      <button class="button secondary" data-action="journal-backfill">Preview and import</button>
+    </div>`;
+  overlay(sheetTemplate("Journal settings", body, `<button class="button primary" data-action="close-overlay">Done</button>`, true));
 }
 
 async function openExistingAnnotation(cfi) {
@@ -895,9 +947,11 @@ async function openExistingAnnotation(cfi) {
 async function renderBackup() {
   if (state.reader) {
     await flushReadingState();
+    await finishReadingSession("closed");
     await state.reader.close();
     state.reader = null;
   }
+  state.currentBook = null;
   const booksSize = state.storage.publicationBytes || 0;
   app.innerHTML = `<div class="app screen backup-screen">
     <header class="utility-header"><button class="icon-button" data-action="library" aria-label="Back to library">${icon("back")}</button><h1>Backup &amp; storage</h1><span></span></header>
@@ -994,11 +1048,12 @@ app.addEventListener("click", async event => {
       const record = await get("annotations", button.dataset.id);
       // Same id, so this is an in-place update. updatedAt is refreshed by
       // addAnnotation itself since the spread now comes first.
-      await addAnnotation({
+      const updated = await addAnnotation({
         ...record,
         note: document.querySelector("#note-text")?.value || "",
         revision: (record.revision || 0) + 1
       });
+      await queueArtifact("annotations", updated, state.currentBook, "updated");
       closeOverlay();
       toast("Note saved.");
     }
@@ -1046,11 +1101,40 @@ app.addEventListener("click", async event => {
     else if (action === "remove-annotation") {
       const annotation = await get("annotations", button.dataset.id);
       if (annotation) await state.reader?.removeAnnotation(annotation);
-      await tombstone("annotations", button.dataset.id);
+      const deleted = await tombstone("annotations", button.dataset.id);
+      if (deleted) await queueArtifactDeletion("annotations", deleted, state.currentBook);
       closeOverlay();
       toast("Annotation removed.");
     }
-    else if (action === "app-settings") toast("Reading settings are available inside each open book.");
+    else if (action === "app-settings") await openJournalSettings();
+    else if (action === "journal-save-connection") {
+      const token = document.querySelector("#journal-token")?.value || "";
+      const device = document.querySelector("#journal-device")?.value || "";
+      const result = await saveJournalConnection(token, device);
+      toast(result.ok ? "Journal connection saved." : result.reason === "token" ? "Enter a GitHub token first." : "A device context could not be created.");
+      await openJournalSettings();
+    }
+    else if (action === "journal-toggle") {
+      const desired = button.getAttribute("aria-checked") !== "true";
+      const token = document.querySelector("#journal-token")?.value || "";
+      if (token) saveJournalToken(token);
+      const device = document.querySelector("#journal-device")?.value || "";
+      const result = await toggleJournal(desired, device);
+      if (!result.ok) toast(result.reason === "token" ? "Enter and save a GitHub token first." : "A device context could not be created.");
+      else toast(desired ? "Petal is now included in Daybook." : "Petal journal sharing is off.");
+      await openJournalSettings();
+    }
+    else if (action === "journal-backfill") {
+      if (!getJournalState().enabled) { toast("Turn on Include in journal first."); return; }
+      const from = document.querySelector("#journal-from")?.value || journalDateRange().from;
+      const to = document.querySelector("#journal-to")?.value || journalDateRange().to;
+      if (from > to) { toast("Choose a valid date range."); return; }
+      if (confirm(`Import Petal records from ${from} through ${to}? This writes saved artifacts and limited imported history to your private journal.`)) {
+        const result = await backfillJournal({ from, to });
+        toast(result.error ? `Import paused with ${result.pendingCount || 0} pending.` : `Imported ${result.records} records across ${result.dates} days.`);
+        await openJournalSettings();
+      }
+    }
     else if (action === "delete-copy") {
       const book = state.books.find(item => item.id === button.dataset.bookId);
       if (confirm(`Delete only the stored EPUB copy of “${book.title}”? Reading records will stay.`)) {
@@ -1060,7 +1144,14 @@ app.addEventListener("click", async event => {
     else if (action === "delete-all") {
       const book = state.books.find(item => item.id === button.dataset.bookId);
       if (confirm(`Delete “${book.title}” and all of its reading records from this device? This cannot be undone.`)) {
-        await deleteBookAndRecords(book.id); closeOverlay(); await refresh(); toast("Book and records deleted."); await renderLibrary();
+        const [records, sessions] = await Promise.all([getBookRecords(book.id), getAll("readingSessions", "bookId", book.id)]);
+        await deleteBookAndRecords(book.id);
+        const deletedAt = now();
+        for (const annotation of records.annotations) await queueArtifactDeletion("annotations", { ...annotation, deletedAt }, book);
+        for (const bookmark of records.bookmarks) await queueArtifactDeletion("bookmarks", { ...bookmark, deletedAt }, book);
+        for (const vocabulary of records.vocabulary) await queueArtifactDeletion("vocabulary", { ...vocabulary, deletedAt }, book);
+        for (const session of sessions) await queueReadingSession({ ...session, deletedAt, updatedAt: deletedAt }, book, { deleted: true });
+        closeOverlay(); await refresh(); toast("Book and records deleted."); await renderLibrary();
       }
     }
     else if (action === "reconnect") { state.reconnectBookId = button.dataset.bookId; epubInput.click(); }
@@ -1176,7 +1267,22 @@ window.addEventListener("resize", () => state.reader?.setLayout(state.preference
 window.addEventListener("pagehide", () => {
   flushReadingState().catch(() => {});
   flushSettingWrite().catch(() => {});
+  finishReadingSession("pagehide").catch(() => {});
 });
+document.addEventListener("visibilitychange", () => {
+  handleVisibility(state.currentBook, {
+    progression: state.currentLocation?.progression,
+    chapterLabel: state.currentLocation?.chapterLabel,
+  }).catch(() => {});
+});
+for (const eventName of ["pointerdown", "keydown", "selectionchange"]) {
+  document.addEventListener(eventName, () => {
+    if (state.reader) noteReaderActivity({
+      progression: state.currentLocation?.progression,
+      chapterLabel: state.currentLocation?.chapterLabel,
+    }).catch(() => {});
+  }, { passive: true });
+}
 document.addEventListener("click", event => {
   const button = event.target.closest("[data-action='apply-update']");
   if (button) state.waitingWorker?.postMessage({ type: "SKIP_WAITING" });
@@ -1185,6 +1291,7 @@ document.addEventListener("click", event => {
 async function start() {
   await openDatabase();
   await refresh();
+  onJournalState(() => {});
   if (
     "serviceWorker" in navigator
     && location.protocol !== "file:"

@@ -1,4 +1,4 @@
-const VERSION = "petal-reader-v1.3.0";
+const VERSION = "petal-reader-v1.4.0-journal1";
 const SHELL = [
   "./",
   "./index.html",
@@ -6,12 +6,16 @@ const SHELL = [
   "./assets/css/app.css",
   "./assets/js/app.js",
   "./assets/js/db.js",
+  "./assets/js/journal.js",
+  "./assets/js/journal-record.js",
   "./assets/js/fonts.js",
   "./assets/js/reader-engine.js",
   "./assets/js/dictionary.js",
   "./assets/js/backup.js",
   "./assets/js/icons.js",
   "./assets/js/hash-worker.js",
+  "../shared/v1/sync.js",
+  "../shared/v2/journal.js",
   "./assets/images/empty-library.png",
   // secret-garden-cover.png is deliberately NOT precached: it is only ever shown in
   // demo mode (?demo / #demo), so every real install would download it for nothing.

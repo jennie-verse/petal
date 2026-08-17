@@ -229,6 +229,9 @@ a { color: var(--pink-strong); }
 .theme-button { min-height: 70px; border: 1px solid var(--border); border-radius: 9px; background: var(--swatch); display: grid; place-items: center; align-content: center; gap: 4px; cursor: pointer; font-size: .8rem; }
 .theme-button.selected { box-shadow: inset 0 0 0 2px var(--pink-strong); }
 .setting-row { min-height: 58px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+.setting-row small { display: block; margin-top: 4px; color: var(--muted); font-weight: 400; }
+.journal-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+.journal-range label { display: grid; gap: 6px; color: var(--muted); font-size: .867rem; }
 .setting-slider { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .setting-slider > label { grid-column: 1; }
 .setting-slider > output { grid-column: 2; min-width: 76px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
