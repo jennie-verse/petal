@@ -51,3 +51,17 @@ test("deployment workflow publishes an explicit runtime allowlist", async () => 
   ]) assert.ok(workflow.includes(required), `missing workflow contract: ${required}`);
   assert.doesNotMatch(workflow, /cp -R \. public/);
 });
+
+test("public deployment documentation matches the current release and Actions setup", async () => {
+  const [readme, guide, customization] = await Promise.all([
+    read("README.md"),
+    read("docs/GITHUB-PAGES-KO.md"),
+    read("docs/CUSTOMIZATION-KO.md"),
+  ]);
+  assert.match(readme, /현재 버전은 `1\.4\.1`/);
+  assert.match(guide, /Test and deploy Petal/);
+  assert.match(guide, /Source는 \*\*GitHub Actions\*\*/);
+  assert.match(guide, /petal-reader-v1\.4\.1-portable-ci/);
+  assert.match(customization, /petal-reader-v1\.4\.1-portable-ci/);
+  assert.doesNotMatch(`${readme}\n${guide}\n${customization}`, /현재 버전은 `1\.1\.0`|GitHub Actions 워크플로도 없습니다|petalreader\//);
+});

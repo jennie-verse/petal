@@ -2,7 +2,7 @@
 
 Petal Reader는 iPhone·iPad에서 DRM 없는 영문 EPUB을 읽고, 하이라이트·메모·북마크·단어를 기기 안에 저장한 뒤 JSON 또는 Obsidian Markdown으로 내보내는 개인용 PWA입니다.
 
-현재 버전은 `1.1.0`입니다.
+현재 버전은 `1.4.1`입니다.
 
 ## 중요한 운영 원칙
 
@@ -23,7 +23,7 @@ Petal Reader는 iPhone·iPad에서 DRM 없는 영문 EPUB을 읽고, 하이라�
 
 ## 폴더 안내
 
-저장소 루트가 곧 배포본입니다. 빌드 단계나 `dist/` 폴더는 없습니다.
+빌드 단계나 `dist/` 폴더가 없는 정적 앱입니다. 저장소의 runtime 파일을 GitHub Actions가 명시적 allowlist로 묶어 Pages에 배포하며, 테스트와 개발 설정은 공개 artifact에서 제외합니다.
 
 - `index.html`, `manifest.webmanifest`, `service-worker.js`, `.nojekyll`: 루트 배포 파일
 - `assets/js/`: 앱 모듈 (`app.js`, `db.js`, `backup.js`, `reader-engine.js`, `fonts.js`, `dictionary.js`, `icons.js`, `hash-worker.js`)
@@ -36,6 +36,8 @@ Petal Reader는 iPhone·iPad에서 DRM 없는 영문 EPUB을 읽고, 하이라�
 - `docs/CUSTOMIZATION-KO.md`: 이름·색상·글꼴 수정 위치
 - `vendor/foliate-js/`: 고정된 EPUB 렌더링 엔진
 - `dictionary/`: 앱에 포함된 Open English WordNet 데이터
+- `.github/workflows/deploy.yml`: 테스트 통과 후 runtime allowlist를 Pages에 배포
+- `tests/`, `package.json`: Node 회귀 검사와 개발 명령(공개 Pages에는 미포함)
 
 ## 기술 구조
 

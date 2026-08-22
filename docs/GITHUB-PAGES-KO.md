@@ -2,12 +2,20 @@
 
 Petal Reader는 GitHub 외의 호스팅·API·CDN을 사용하지 않도록 구성되어 있습니다.
 
-**저장소 루트가 곧 배포본입니다.** 빌드 단계도, `dist/` 폴더도, GitHub Actions 워크플로도 없습니다. `index.html`과 `.nojekyll`이 루트에 있고 나머지는 그대로 정적 파일입니다.
+빌드 단계와 `dist/` 폴더가 없는 정적 앱입니다. 현재 저장소는 `.github/workflows/deploy.yml`에서 회귀 검사와 JavaScript 문법 검사를 통과한 뒤 runtime allowlist만 GitHub Pages에 배포합니다. `tests/`, `package.json`, `.github/`는 공개 artifact에 포함하지 않습니다.
 
-## 배포 방법
+## 현재 저장소 업데이트
+
+1. `Published/petal/`에서 수정합니다.
+2. `npm test`와 `npm run test:syntax`를 실행합니다.
+3. `main`에 push하면 `Test and deploy Petal` workflow가 테스트 후 Pages를 배포합니다.
+4. GitHub `Settings` → `Pages`의 Source는 **GitHub Actions**로 유지합니다.
+5. Actions의 `test`와 `deploy`가 모두 성공한 뒤 공개 주소를 확인합니다.
+
+## 새 계정에 Backup을 수동 복원하는 방법
 
 1. GitHub에서 새 저장소를 만듭니다.
-2. `petalreader/` 폴더의 **내용 전체**를 저장소 루트에 업로드합니다 (`petalreader` 폴더째로 올리지 마세요).
+2. `WebApp/Backup/petal/` 폴더의 **내용 전체**를 저장소 루트에 업로드합니다 (`petal` 폴더째로 올리지 마세요).
 3. `Settings` → `Pages`로 이동합니다.
 4. Source를 `Deploy from a branch`로 선택합니다.
 5. Branch `main`, Folder `/ (root)`를 선택하고 저장합니다.
@@ -20,10 +28,10 @@ Petal Reader는 GitHub 외의 호스팅·API·CDN을 사용하지 않도록 구�
 `service-worker.js`의 `VERSION`을 올려야 기존 기기의 캐시가 갱신됩니다. 값을 그대로 두면 업데이트 배너가 뜨지 않습니다.
 
 ```js
-const VERSION = "petal-reader-v1.1.0";
+const VERSION = "petal-reader-v1.4.1-portable-ci";
 ```
 
-`assets/js/backup.js`의 `APP_VERSION`도 같은 값으로 맞추세요. 백업 JSON과 Obsidian YAML에 기록됩니다.
+`assets/js/backup.js`의 `APP_VERSION`도 같은 의미 버전(`1.4.1`)으로 맞추세요. Service Worker 값에는 앱 이름과 배포 식별자 접두·접미사가 추가될 수 있습니다. `APP_VERSION`은 백업 JSON과 Obsidian YAML에 기록됩니다.
 
 ## 주소 고정
 

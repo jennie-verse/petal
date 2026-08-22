@@ -68,7 +68,7 @@ html { font-size: 15px; }
 `service-worker.js`의:
 
 ```js
-const VERSION = "petal-reader-v1.1.0";
+const VERSION = "petal-reader-v1.4.1-portable-ci";
 ```
 
 배포할 때마다 값을 올립니다. 기존 버전 사용자는 업데이트 배너에서 새 버전을 적용합니다.
