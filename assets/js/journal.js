@@ -7,7 +7,13 @@ const QUEUE_NAMESPACE = "petal-journal";
 const ENABLED_KEY = "petal.journalEnabled.v1";
 const TOKEN_KEY = "sync.token.v1";
 const IDLE_MS = 5 * 60 * 1000;
-const REPO = Object.freeze({ owner: "jennie-verse", repo: "webapp-data", branch: "main" });
+const githubPagesOwner = () => {
+  const hostname = String(globalThis.location?.hostname || "").toLowerCase();
+  return hostname.endsWith(".github.io")
+    ? hostname.slice(0, -".github.io".length)
+    : "";
+};
+const REPO = Object.freeze({ owner: githubPagesOwner(), repo: "webapp-data", branch: "main" });
 
 let clientPromise = null;
 let syncModulePromise = null;

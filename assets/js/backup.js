@@ -7,7 +7,7 @@ import { ACCEPTED_FONT_VALUES, SETTING_LIMITS } from "./fonts.js";
 const RECORD_STORES = ["books", "readingStates", "readingSessions", "annotations", "bookmarks", "vocabulary"];
 const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 const PREFERENCE_RULES = {
   preset: ["original", "comfortable", "focus", "large", "custom"],
   // Includes retired v1.0.1 values on purpose: validation is permissive so old

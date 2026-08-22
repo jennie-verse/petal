@@ -1,4 +1,4 @@
-const VERSION = "petal-reader-v1.4.0-journal1";
+const VERSION = "petal-reader-v1.4.1-portable-ci";
 const SHELL = [
   "./",
   "./index.html",
