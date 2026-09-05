@@ -6,11 +6,11 @@
 
 | 파일 | 용도 |
 |---|---|
-| `Lexend-Variable.woff2` | UI 기본 서체 · 본문 선택지 (2026-09-02: TTF 175KB → WOFF2 72KB로 교체) |
+| `Lexend-Variable.woff2` | UI 기본 서체 · 본문 선택지 |
 | `AtkinsonHyperlegible-Regular.ttf` | 본문 선택지 |
 | `AtkinsonHyperlegible-Bold.ttf` | 위 폰트의 Bold |
 
-## 직접 추가하셔야 하는 파일 (v1.1.0)
+## 직접 추가하셔야 하는 파일
 
 아래 4개는 네트워크 제한으로 자동 내려받지 못했습니다. **파일명을 정확히 맞춰** 이 폴더에 넣으시면 코드 수정 없이 바로 동작합니다.
 
