@@ -1,0 +1,1 @@
+{"w":{"lqg controller":{"l":"LQG controller","s":[{"i":"92462841-n","p":"n","d":["a controller that is the combination of a Kalman filter i.e. a linear-quadratic estimator (LQE) with a linear-quadratic regulator (LQR)."],"e":[{"source":"https://en.wikipedia.org","text":"The LQG controller itself is a dynamic system like the system it controls."}]}]}},"a":{}}
