@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#fffdf8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Petal Reader">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' blob: data:; font-src 'self' blob: data:; media-src 'self' blob: data:; frame-src blob:; connect-src 'self' https://api.github.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
+    <link rel="icon" href="./assets/icons/icon-192.png">
+    <link rel="stylesheet" href="./assets/css/app.css">
+    <title>Petal Reader</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div id="app"></div>
+    <input id="epub-input" hidden type="file" accept=".epub,application/epub+zip" multiple tabindex="-1" aria-hidden="true">
+    <input id="backup-input" hidden type="file" accept=".json,application/json" tabindex="-1" aria-hidden="true">
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="./assets/js/app.js"></script>
+  </body>
+</html>
