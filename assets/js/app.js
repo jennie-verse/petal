@@ -240,7 +240,7 @@ async function renderLibrary() {
     <article class="continue-card">
       <img class="book-cover" src="${escapeHtml(recentCover)}" alt="Cover of ${escapeHtml(recent.title)}">
       <div class="book-copy">
-        <h3 class="book-title">${escapeHtml(recent.title)}</h3>
+        <div class="book-heading"><h3 class="book-title">${escapeHtml(recent.title)}</h3><button class="icon-button" data-action="book-menu" data-book-id="${escapeHtml(recent.id)}" aria-label="More options for ${escapeHtml(recent.title)}">${icon("more")}</button></div>
         <p class="book-author">${escapeHtml(recent.author)}</p>
         <p class="book-chapter">${escapeHtml(recent.chapterLabel)}</p>
         <div class="progress-row"><span>${progress}%</span><div class="progress-track" role="progressbar" aria-label="Reading progress" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" style="width:${progress}%"></div></div></div>
@@ -1355,21 +1355,7 @@ document.addEventListener("click", event => {
   if (button) state.waitingWorker?.postMessage({ type: "SKIP_WAITING" });
 });
 
-// One-time fresh-start reset for the 2026-09-05 first release: wipes only Petal's own
-// IndexedDB stores and localStorage keys (resetAllLocalData already leaves the
-// shared "sync.token.v1" credential and other apps' keys untouched — see db.js).
-// Gated on APP_BUILD so it runs exactly once, the first time this build is loaded.
-const FRESH_START_KEY = `petal.freshStart.${APP_BUILD}`;
-async function ensureFreshStart() {
-  try {
-    if (localStorage.getItem(FRESH_START_KEY)) return;
-    await resetAllLocalData();
-    localStorage.setItem(FRESH_START_KEY, "1");
-  } catch { /* best effort: never block startup on this */ }
-}
-
 async function start() {
-  await ensureFreshStart();
   applyUiScale();
   await openDatabase();
   await refresh();

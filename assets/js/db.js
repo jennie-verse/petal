@@ -183,7 +183,7 @@ export async function importPublication({ file, fileHash, metadata, coverBlob })
 export async function reconnectPublication({ bookId, file, fileHash, metadata, coverBlob }) {
   const db = await openDatabase();
   const book = await get("books", bookId);
-  if (!book) throw new Error("Book record not found.");
+  if (!book || book.deletedAt) throw new Error("Book record not found.");
   const existing = await get("publicationFiles", fileHash);
   if (existing && existing.bookId !== bookId) throw new Error("This EPUB is already connected to another library record.");
   const timestamp = now();
@@ -206,6 +206,7 @@ export async function reconnectPublication({ bookId, file, fileHash, metadata, c
     updatedAt: timestamp,
     revision: (book.revision || 0) + 1
   });
+  deletePublicationCopies(transaction, bookId, fileHash);
   await transactionDone(transaction);
   return get("books", bookId);
 }
@@ -328,18 +329,37 @@ export async function savePreferences(preferences) {
 }
 
 export async function deleteBookCopy(bookId) {
+  const db = await openDatabase();
   const book = await get("books", bookId);
-  if (!book?.activeFileHash) return;
-  await remove("publicationFiles", book.activeFileHash);
-  await updateBook(bookId, { activeFileHash: null });
+  if (!book || book.deletedAt) return;
+  const transaction = db.transaction(["books", "publicationFiles"], "readwrite");
+  deletePublicationCopies(transaction, bookId);
+  transaction.objectStore("books").put({
+    ...book, activeFileHash: null, updatedAt: now(), revision: (book.revision || 0) + 1
+  });
+  await transactionDone(transaction);
+}
+
+// Reconnecting changes the current copy; superseded EPUBs must not remain as
+// invisible duplicates that waste space or block future imports. The index
+// also cleans up copies left by older app versions when a book is removed.
+function deletePublicationCopies(transaction, bookId, keepHash = null) {
+  const request = transaction.objectStore("publicationFiles").index("bookId").openCursor(IDBKeyRange.only(bookId));
+  request.onsuccess = () => {
+    const cursor = request.result;
+    if (!cursor) return;
+    if (cursor.value.fileHash !== keepHash) cursor.delete();
+    cursor.continue();
+  };
 }
 
 export async function deleteBookAndRecords(bookId) {
   const db = await openDatabase();
   const book = await get("books", bookId);
+  if (!book) return;
   const transaction = db.transaction(["books", "publicationFiles", "readingStates", "readingSessions", "annotations", "bookmarks", "vocabulary"], "readwrite");
   transaction.objectStore("books").put({ ...book, deletedAt: now(), updatedAt: now(), revision: (book.revision || 0) + 1 });
-  if (book?.activeFileHash) transaction.objectStore("publicationFiles").delete(book.activeFileHash);
+  deletePublicationCopies(transaction, bookId);
   const readingRequest = transaction.objectStore("readingStates").get(bookId);
   readingRequest.onsuccess = () => {
     const reading = readingRequest.result;
