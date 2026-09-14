@@ -615,15 +615,24 @@ const PRESETS = {
     publisherStyles: false
   },
   focus: {
+    // textWidth is tuned to keep this preset's reading column the same
+    // pixel width it always was, now that the "Text width" -> px
+    // conversion no longer scales with fontSize (see textWidthPixels in
+    // reader-engine.js) — the raw ch value has to be bigger than the old
+    // 52 to make up for no longer being multiplied by this preset's own
+    // (smaller than default) 15px font size.
     preset: "focus", fontFamily: "Georgia, serif", fontSize: 15, lineHeight: 1.55,
     letterSpacing: 0, paragraphSpacing: .5, horizontalMargin: 40, verticalMargin: 28,
-    textWidth: 52, alignment: "left", spread: "auto", flow: "paginated",
+    textWidth: 49, alignment: "left", spread: "auto", flow: "paginated",
     theme: "paper", animation: false, publisherStyles: false
   },
   large: {
+    // Same reasoning as focus above, in the other direction: this preset's
+    // 24px font used to widen its column automatically, so textWidth has
+    // to go up from 60 to keep the same pixel width now that it isn't.
     preset: "large", fontFamily: "Atkinson Hyperlegible, Arial, sans-serif", fontSize: 24,
     lineHeight: 1.8, letterSpacing: 0, paragraphSpacing: .75, horizontalMargin: 24,
-    verticalMargin: 24, textWidth: 60, alignment: "left", spread: "auto",
+    verticalMargin: 24, textWidth: 90, alignment: "left", spread: "auto",
     flow: "paginated", theme: "beige", animation: false, publisherStyles: false
   }
 };

@@ -62,7 +62,7 @@ export const SETTING_RANGES = {
   paragraphSpacing: [0, 1.5, .05],
   horizontalMargin: [12, 72, 2],
   verticalMargin: [12, 48, 2],
-  textWidth: [36, 80, 1]
+  textWidth: [36, 96, 1]
 };
 
 export const SETTING_UNITS = {

@@ -18,8 +18,17 @@ const COLOR_MAP = {
 // layouts — the common case on phones — never split into extra columns no
 // matter how small max-inline-size is, so that alone never visibly shrinks
 // the reading column there).
+//
+// Deliberately pinned to DEFAULT_FONT_SIZE rather than the live "Text size"
+// preference: this cap used to scale with the current font size, so pulling
+// the font-size slider down also shrank the reading column itself — the
+// page visually "zoomed out" instead of just reflowing, and words that
+// should have fit on one line got pushed to the next because the column
+// shrank faster than the glyphs did. Pinning the conversion means the same
+// "Text width" value always maps to the same pixel column regardless of
+// font size, so font size only changes how much text fits in that column.
 function textWidthPixels(preferences) {
-  return Math.round((preferences.textWidth || 68) * (preferences.fontSize || DEFAULT_FONT_SIZE) * .52);
+  return Math.round((preferences.textWidth || 68) * DEFAULT_FONT_SIZE * .52);
 }
 
 function withTimeout(promise, milliseconds, message) {
@@ -388,21 +397,45 @@ export class ReaderEngineAdapter extends EventTarget {
       pointerStart = null;
       if (!start || event.target.closest("a, button, input, textarea, select")) return;
       const selection = doc.getSelection();
-      const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (!selection?.isCollapsed) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      const distance = Math.hypot(dx, dy);
+      const elapsed = performance.now() - start.time;
+
+      // A deliberate horizontal drag turns the page even though it moves
+      // well past the tap-jitter tolerance below — swiping is the natural
+      // page-turn gesture on a touchscreen and shouldn't be swallowed as
+      // "not a tap".
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone: dx < 0 ? "next" : "previous", index } }));
+        return;
+      }
+
       // A real fingertip tap rarely lands within 10px/250ms of its own down
       // event — those thresholds were tight enough that ordinary taps were
       // silently dropped ("가끔 안눌리는 경우"). Loosened to match typical
       // touch-tap jitter and timing.
-      if (!selection?.isCollapsed || distance > 24 || performance.now() - start.time > 500) return;
+      if (distance > 24 || elapsed > 500) return;
       // The iframe is sized to the whole scrollable spread (often thousands of
-      // pixels wide), not the visible page, so clientX / iframe width is
-      // meaningless. Re-anchor the tap to the reader's on-screen viewport.
+      // pixels wide), not the visible page, so clientX/clientY relative to it
+      // is meaningless. Re-anchor the tap to the reader's on-screen viewport.
       const frame = doc.defaultView.frameElement;
       const hostRect = this.host.getBoundingClientRect();
       const frameRect = frame?.getBoundingClientRect();
       const pageX = (frameRect?.left ?? hostRect.left) + event.clientX;
-      const fraction = (pageX - hostRect.left) / Math.max(1, hostRect.width);
-      const zone = fraction < .3 ? "previous" : fraction > .7 ? "next" : "center";
+      const pageY = (frameRect?.top ?? hostRect.top) + event.clientY;
+      const fractionX = (pageX - hostRect.left) / Math.max(1, hostRect.width);
+      const fractionY = (pageY - hostRect.top) / Math.max(1, hostRect.height);
+      // Previous: top strip or left strip. Next: bottom strip or right
+      // strip. A plain left/right split left the top and bottom thirds of
+      // the screen dead — this now matches the common ebook/comic-reader
+      // convention (earlier = up-and-left, later = down-and-right) so a tap
+      // near any edge, not just squarely on the left or right, turns the
+      // page.
+      const zone = (fractionX < .3 || fractionY < .3) ? "previous"
+        : (fractionX > .7 || fractionY > .7) ? "next"
+        : "center";
       this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone, index } }));
     }, true);
 
