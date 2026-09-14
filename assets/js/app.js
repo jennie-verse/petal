@@ -1290,8 +1290,8 @@ document.addEventListener("keydown", event => {
   const isEditing = target instanceof HTMLElement
     && (target.matches("input, textarea, select, button, [contenteditable='true']") || target.closest('[role="dialog"]'));
   if (state.reader && !isEditing && !event.metaKey && !event.ctrlKey && !event.altKey) {
-    if (event.key === "ArrowRight") state.reader.next();
-    if (event.key === "ArrowLeft") state.reader.previous();
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") state.reader.next();
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") state.reader.previous();
   }
   if (event.key === "Tab") {
     const dialog = document.querySelector('[role="dialog"]');

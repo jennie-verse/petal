@@ -1,4 +1,4 @@
-const VERSION = "petal-reader-v1.0.0-2026.09.07-librarycare";
+const VERSION = "petal-reader-v1.0.0-2026.09.14-continuousscroll";
 const SHELL = [
   "./",
   "./index.html",

@@ -228,6 +228,28 @@ export class ReaderEngineAdapter extends EventTarget {
     );
 
     await withTimeout(this.view.open(book), 15_000, "The EPUB renderer did not start in time.");
+    // In "scrolled" flow the paginator only ever scrolls within the current
+    // chapter's own container — reaching the bottom (or top) of that
+    // container just dead-ends, it does not automatically load the next (or
+    // previous) chapter the way a single continuous scroll would feel like
+    // it should. Watch the renderer's own scroll position and, once it is
+    // pinned at an edge with nowhere left to scroll, advance the section
+    // ourselves so Chapter Scroll reads as one continuous scroll across the
+    // whole book instead of stopping dead at every chapter boundary.
+    let edgeAdvancePending = false;
+    const onRendererScroll = () => {
+      const renderer = this.view?.renderer;
+      if (!renderer || this.preferences?.flow !== "scrolled" || edgeAdvancePending) return;
+      const atBottom = renderer.viewSize - renderer.end <= 2;
+      const atTop = renderer.start <= 0;
+      if (!atBottom && !atTop) return;
+      edgeAdvancePending = true;
+      Promise.resolve(atBottom ? this.view.next() : this.view.prev())
+        .catch(() => {})
+        .finally(() => { edgeAdvancePending = false; });
+    };
+    this.view.renderer?.addEventListener("scroll", onRendererScroll);
+    this.cleanups.push(() => this.view?.renderer?.removeEventListener("scroll", onRendererScroll));
     this.setLayout(preferences);
     this.setStyles(preferences);
     if (initialLocator?.cfi) {
@@ -348,10 +370,10 @@ export class ReaderEngineAdapter extends EventTarget {
     doc.addEventListener("keydown", event => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.target?.closest?.("a, button, input, textarea, select, [contenteditable='true']")) return;
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
         event.preventDefault();
         this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone: "next", index } }));
-      } else if (event.key === "ArrowLeft") {
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
         event.preventDefault();
         this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone: "previous", index } }));
       }
@@ -367,7 +389,11 @@ export class ReaderEngineAdapter extends EventTarget {
       if (!start || event.target.closest("a, button, input, textarea, select")) return;
       const selection = doc.getSelection();
       const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-      if (!selection?.isCollapsed || distance > 10 || performance.now() - start.time > 250) return;
+      // A real fingertip tap rarely lands within 10px/250ms of its own down
+      // event — those thresholds were tight enough that ordinary taps were
+      // silently dropped ("가끔 안눌리는 경우"). Loosened to match typical
+      // touch-tap jitter and timing.
+      if (!selection?.isCollapsed || distance > 24 || performance.now() - start.time > 500) return;
       // The iframe is sized to the whole scrollable spread (often thousands of
       // pixels wide), not the visible page, so clientX / iframe width is
       // meaningless. Re-anchor the tap to the reader's on-screen viewport.
@@ -445,7 +471,15 @@ export class ReaderEngineAdapter extends EventTarget {
     renderer.setAttribute("flow", this.preferences.flow === "scrolled" ? "scrolled" : "paginated");
     renderer.setAttribute("margin", `${this.preferences.horizontalMargin || 32}px`);
     renderer.setAttribute("gap", "4%");
-    renderer.setAttribute("max-inline-size", `${textWidthPixels(this.preferences)}px`);
+    // When the reader is told to keep the publisher's own styles, the text-width
+    // cap must not apply — otherwise a book designed for a wide column (or
+    // full-bleed images) gets squeezed into the "Text width" slider's value
+    // regardless, wrapping lines that were meant to stay on one line and
+    // slicing images across the resulting narrower columns.
+    renderer.setAttribute(
+      "max-inline-size",
+      this.preferences.publisherStyles ? `${pageWidth}px` : `${textWidthPixels(this.preferences)}px`
+    );
     renderer.setAttribute("max-column-count", String(columns));
     renderer.toggleAttribute(
       "animated",
@@ -469,6 +503,9 @@ export class ReaderEngineAdapter extends EventTarget {
   //    priority the library's own reset has.
   #applyTextWidthOverride() {
     if (!this.view?.renderer?.getContents) return;
+    // Publisher Styles means "don't fight the book's own layout" — forcing our
+    // width cap here regardless would silently override that setting.
+    if (this.preferences?.publisherStyles) return;
     const maxWidth = `${textWidthPixels(this.preferences)}px`;
     for (const { doc } of this.view.renderer.getContents()) {
       if (!doc?.body) continue;
@@ -521,7 +558,11 @@ export class ReaderEngineAdapter extends EventTarget {
       ${FONT_FACE_CSS}
       ${typography}
       a { color: #9f244a !important; text-decoration-thickness: .08em; }
-      img, svg { max-width: 100% !important; height: auto !important; }
+      img, svg, figure {
+        max-width: 100% !important; height: auto !important;
+        break-inside: avoid !important; -webkit-column-break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
       ::selection { background: rgba(239,127,160,.32); }
     `);
     // setStyles() alone (no setLayout()) is what runs on every frame while
