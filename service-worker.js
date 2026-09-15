@@ -1,4 +1,4 @@
-const VERSION = "petal-reader-v1.0.0-2026.09.14-tapzonesandwidth";
+const VERSION = "petal-reader-v1.0.0-2026.09.15-highlighttapzone";
 const SHELL = [
   "./",
   "./index.html",

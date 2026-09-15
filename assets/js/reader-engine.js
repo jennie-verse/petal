@@ -161,6 +161,11 @@ export class ReaderEngineAdapter extends EventTarget {
     this.preferences = null;
     this.currentSelection = null;
     this.cleanups = [];
+    // Bumped every time an existing highlight's own click handler fires
+    // (see onShow/annotation-activate below) so the page-tap zone logic in
+    // #prepareDocument can tell "this tap just opened a saved annotation"
+    // from "this tap should turn the page" without touching vendored code.
+    this.annotationTapVersion = 0;
   }
 
   async open(fileRecord, initialLocator, preferences, annotations = []) {
@@ -221,7 +226,10 @@ export class ReaderEngineAdapter extends EventTarget {
       const { draw, annotation } = event.detail;
       draw(Overlayer.highlight, { color: COLOR_MAP[annotation.color] || COLOR_MAP.core });
     };
-    const onShow = event => this.dispatchEvent(new CustomEvent("annotation-activate", { detail: event.detail }));
+    const onShow = event => {
+      this.annotationTapVersion++;
+      this.dispatchEvent(new CustomEvent("annotation-activate", { detail: event.detail }));
+    };
 
     this.view.addEventListener("relocate", onRelocate);
     this.view.addEventListener("load", onLoad);
@@ -436,7 +444,24 @@ export class ReaderEngineAdapter extends EventTarget {
       const zone = (fractionX < .3 || fractionY < .3) ? "previous"
         : (fractionX > .7 || fractionY > .7) ? "next"
         : "center";
-      this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone, index } }));
+      // A tap on an existing highlight lands here too — pointerup fires
+      // before the vendored overlayer's own 'click' listener (view.js) runs
+      // its hit-test and fires "show-annotation", so dispatching page-tap
+      // here unconditionally used to turn the page (or toggle the toolbar)
+      // out from under a highlight near the tap-zone edges instead of
+      // opening its saved note — found by manually tapping a highlight near
+      // the top/bottom of the screen. A queued microtask still ran BEFORE
+      // that 'click' in testing (pointerup and click are not always the same
+      // task here), so this needs an actual macrotask: a 0ms setTimeout
+      // reliably runs after the browser's own pointerup-then-click sequence,
+      // by which time onShow's annotationTapVersion bump above has already
+      // landed if this tap hit a highlight — a stale snapshot then skips the
+      // page-tap instead of racing the annotation sheet.
+      const tapVersion = this.annotationTapVersion;
+      setTimeout(() => {
+        if (this.annotationTapVersion !== tapVersion) return;
+        this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone, index } }));
+      }, 0);
     }, true);
 
     let selectionTimer;
