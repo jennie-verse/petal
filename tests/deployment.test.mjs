@@ -86,10 +86,12 @@ test("foldable/wide-screen layout rules and matching build stamps", async () => 
   assert.match(css, /overscroll-behavior: none/);
   assert.match(css, /touch-action: manipulation/);
   assert.match(css, /@media \(min-width: 880px\)[\s\S]*\.book-list \{ display: grid; grid-template-columns: repeat\(2/);
+  assert.ok(css.includes("@media (min-width: 640px) and (min-height: 560px)"));
+  assert.match(css, /@media \(min-width: 900px\) and \(orientation: landscape\)/);
   assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
   assert.match(css, /input, select, textarea \{ font-size: 16px; \}/);
   assert.match(app, /addEventListener\("resize"[\s\S]*requestAnimationFrame[\s\S]*setLayout/);
   const stamp = version.match(/APP_BUILD = "([^"]+)"/)[1];
-  assert.equal(stamp, "2026.11.12-foldable1");
+  assert.equal(stamp, "2026.11.12-foldable2");
   assert.ok(sw.includes(`const VERSION = "petal-reader-v1.0.0-${stamp}"`));
 });

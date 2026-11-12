@@ -412,11 +412,14 @@ a { color: var(--pink-strong); }
   .selection-bar { bottom: calc(58px + var(--safe-bottom)); }
 }
 
-/* Unfolded / wide windows (foldable ~840-1000px, Mac): width-based only. */
-@media (min-width: 760px) {
-  .sheet { width: min(80vw, 500px); }
-  .sheet.wide { width: min(86vw, 640px); }
+/* Tier A "tablet portrait" (unfolded foldable 669x951, Mac windows): single-column-safe changes only.
+   The height guard keeps a folded landscape phone (678x466) on the phone layout. */
+@media (min-width: 640px) and (min-height: 560px) {
+  .sheet-backdrop { align-items: center; justify-content: center; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
+  .sheet { width: min(100%, 520px); height: auto; max-height: min(86dvh, 760px); min-height: min(420px, 100%); border-radius: 20px; border-bottom: 1px solid var(--border); }
+  .sheet.wide { width: min(100%, 640px); }
 }
+/* Tier B "wide" (side-by-side layouts, >= 880px) */
 @media (min-width: 880px) {
   .book-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 36px; }
 }
@@ -430,7 +433,7 @@ a { color: var(--pink-strong); }
 
 @media (min-width: 900px) and (orientation: landscape) {
   .sheet-backdrop { align-items: center; }
-  .sheet { height: calc(100% - 20px); }
+  .sheet { height: calc(100% - 20px); max-height: none; }
 }
 
 @media (min-resolution: 2dppx) {
