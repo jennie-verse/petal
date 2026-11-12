@@ -191,6 +191,17 @@ export class ReaderEngineAdapter extends EventTarget {
     this.view = document.createElement("foliate-view");
     this.view.className = "foliate-reader";
     this.host.replaceChildren(this.view);
+    // With a capped text width (wide windows) the paginator leaves empty side
+    // margins that are not part of the book iframe, so taps there never reach
+    // the iframe's own tap handler. Clicks inside the iframe do not bubble to
+    // this element, so anything arriving here is a margin tap: same zones.
+    this.view.addEventListener("click", event => {
+      const rect = this.view.getBoundingClientRect();
+      const fx = (event.clientX - rect.left) / Math.max(1, rect.width);
+      const fy = (event.clientY - rect.top) / Math.max(1, rect.height);
+      const zone = (fx < .3 || fy < .3) ? "previous" : (fx > .7 || fy > .7) ? "next" : "center";
+      this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone, index: -1 } }));
+    });
 
     const onRelocate = event => {
       const location = event.detail;
@@ -387,10 +398,12 @@ export class ReaderEngineAdapter extends EventTarget {
     doc.addEventListener("keydown", event => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.target?.closest?.("a, button, input, textarea, select, [contenteditable='true']")) return;
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      const forward = event.key === "ArrowRight" || event.key === "ArrowDown" || event.key === "PageDown" || (event.key === " " && !event.shiftKey);
+      const backward = event.key === "ArrowLeft" || event.key === "ArrowUp" || event.key === "PageUp" || (event.key === " " && event.shiftKey);
+      if (forward) {
         event.preventDefault();
         this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone: "next", index } }));
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      } else if (backward) {
         event.preventDefault();
         this.dispatchEvent(new CustomEvent("page-tap", { detail: { zone: "previous", index } }));
       }

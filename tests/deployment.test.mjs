@@ -91,7 +91,10 @@ test("foldable/wide-screen layout rules and matching build stamps", async () => 
   assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
   assert.match(css, /input, select, textarea \{ font-size: 16px; \}/);
   assert.match(app, /addEventListener\("resize"[\s\S]*requestAnimationFrame[\s\S]*setLayout/);
+  const engine = await read("assets/js/reader-engine.js");
+  assert.match(engine, /this\.view\.addEventListener\("click"[\s\S]*page-tap/);
+  assert.match(engine, /event\.key === "PageDown"/);
   const stamp = version.match(/APP_BUILD = "([^"]+)"/)[1];
-  assert.equal(stamp, "2026.11.12-foldable2");
+  assert.equal(stamp, "2026.11.12-foldable3");
   assert.ok(sw.includes(`const VERSION = "petal-reader-v1.0.0-${stamp}"`));
 });
