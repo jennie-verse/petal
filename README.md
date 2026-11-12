@@ -1,6 +1,6 @@
 # Petal Reader
 
-Petal Reader는 iPhone·iPad에서 DRM 없는 영문 EPUB을 읽고, 하이라이트·메모·북마크·단어를 기기 안에 저장한 뒤 JSON 또는 Obsidian Markdown으로 내보내는 개인용 PWA입니다.
+Petal Reader는 iPhone(접힌/펼친 화면)·Mac Safari에서 DRM 없는 영문 EPUB을 읽고, 하이라이트·메모·북마크·단어를 기기 안에 저장한 뒤 JSON 또는 Obsidian Markdown으로 내보내는 개인용 PWA입니다.
 
 현재 버전은 `1.0.0`입니다.
 

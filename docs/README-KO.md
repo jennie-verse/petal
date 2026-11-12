@@ -1,6 +1,6 @@
 # Petal Reader 구조 안내
 
-Petal Reader는 iPhone·iPad에서 DRM 없는 영문 reflowable EPUB 2/3을 읽는 로컬 우선 PWA입니다. 하이라이트, 메모, 북마크와 사전 기록은 현재 기기의 IndexedDB에 저장하며 JSON 백업과 Obsidian Markdown 내보내기를 지원합니다.
+Petal Reader는 iPhone(접으면 폰·펼치면 태블릿 크기인 iPhone Duo)·Mac Safari에서 DRM 없는 영문 reflowable EPUB 2/3을 읽는 로컬 우선 PWA입니다. 하이라이트, 메모, 북마크와 사전 기록은 현재 기기의 IndexedDB에 저장하며 JSON 백업과 Obsidian Markdown 내보내기를 지원합니다.
 
 ## 주요 폴더
 

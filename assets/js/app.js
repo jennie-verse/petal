@@ -1301,6 +1301,8 @@ document.addEventListener("keydown", event => {
   if (state.reader && !isEditing && !event.metaKey && !event.ctrlKey && !event.altKey) {
     if (event.key === "ArrowRight" || event.key === "ArrowDown") state.reader.next();
     if (event.key === "ArrowLeft" || event.key === "ArrowUp") state.reader.previous();
+    if (event.key === "PageDown" || (event.key === " " && !event.shiftKey)) { event.preventDefault(); state.reader.next(); }
+    if (event.key === "PageUp" || (event.key === " " && event.shiftKey)) { event.preventDefault(); state.reader.previous(); }
   }
   if (event.key === "Tab") {
     const dialog = document.querySelector('[role="dialog"]');
@@ -1339,7 +1341,16 @@ backupInput.addEventListener("change", async () => {
 
 window.addEventListener("hashchange", renderRoute);
 window.addEventListener("orientationchange", () => setTimeout(() => state.reader?.setLayout(state.preferences), 250));
-window.addEventListener("resize", () => state.reader?.setLayout(state.preferences));
+// Fold/unfold and window drags fire many resize events; relayout once per frame
+// with the final size (columns and tap zones are derived from the live size).
+let resizeFrame = 0;
+window.addEventListener("resize", () => {
+  if (resizeFrame) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    state.reader?.setLayout(state.preferences);
+  });
+});
 window.addEventListener("pagehide", () => {
   flushReadingState().catch(() => {});
   flushSettingWrite().catch(() => {});

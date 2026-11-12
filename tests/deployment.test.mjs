@@ -75,3 +75,21 @@ test("public deployment documentation matches the current release and Actions se
   assert.match(guide, /Source는 \*\*GitHub Actions\*\*/);
   assert.doesNotMatch(`${readme}\n${guide}\n${customization}`, /현재 버전은 `1\.1\.0`|현재 버전은 `1\.4\.2`|현재 버전은 `1\.4\.4`|GitHub Actions 워크플로도 없습니다|petalreader\//);
 });
+
+test("foldable/wide-screen layout rules and matching build stamps", async () => {
+  const [css, app, sw, version] = await Promise.all([
+    read("assets/css/app.css"),
+    read("assets/js/app.js"),
+    read("service-worker.js"),
+    read("assets/js/version.js"),
+  ]);
+  assert.match(css, /overscroll-behavior: none/);
+  assert.match(css, /touch-action: manipulation/);
+  assert.match(css, /@media \(min-width: 880px\)[\s\S]*\.book-list \{ display: grid; grid-template-columns: repeat\(2/);
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(css, /input, select, textarea \{ font-size: 16px; \}/);
+  assert.match(app, /addEventListener\("resize"[\s\S]*requestAnimationFrame[\s\S]*setLayout/);
+  const stamp = version.match(/APP_BUILD = "([^"]+)"/)[1];
+  assert.equal(stamp, "2026.11.12-foldable1");
+  assert.ok(sw.includes(`const VERSION = "petal-reader-v1.0.0-${stamp}"`));
+});

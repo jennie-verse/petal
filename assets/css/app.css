@@ -82,7 +82,9 @@
 * { box-sizing: border-box; }
 /* The single UI text-size knob: every rem below scales from here. */
 html { font-size: var(--ui-scale); }
-html, body { min-height: 100%; margin: 0; background: var(--bg); color: var(--text); }
+html, body { min-height: 100%; margin: 0; background: var(--bg); color: var(--text); overscroll-behavior: none; }
+/* No double-tap delay/zoom on controls (pinch zoom is unchanged). */
+button, input, select, textarea, label, summary, a { touch-action: manipulation; }
 body { min-width: 320px; font-size: 1rem; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { color: inherit; font: inherit; }
 input, select, textarea { font-size: 16px; }   /* absolute on purpose: iOS zooms fields under 16px on focus */
@@ -408,6 +410,22 @@ a { color: var(--pink-strong); }
   .reader-title { text-align: left; }
   .sheet { height: 100%; border-radius: 16px; }
   .selection-bar { bottom: calc(58px + var(--safe-bottom)); }
+}
+
+/* Unfolded / wide windows (foldable ~840-1000px, Mac): width-based only. */
+@media (min-width: 760px) {
+  .sheet { width: min(80vw, 500px); }
+  .sheet.wide { width: min(86vw, 640px); }
+}
+@media (min-width: 880px) {
+  .book-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 36px; }
+}
+
+/* Mouse / trackpad (Mac) only; nothing depends on hover. */
+@media (hover: hover) and (pointer: fine) {
+  .book-row:hover { background: rgba(253, 232, 238, .5); }
+  .segmented button:hover, .mini-button:hover, .theme-button:hover { filter: brightness(.97); }
+  .record-row:hover, .result-row:hover, .toc-row:hover { background: var(--pink-soft); }
 }
 
 @media (min-width: 900px) and (orientation: landscape) {

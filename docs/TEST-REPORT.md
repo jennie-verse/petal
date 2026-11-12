@@ -55,3 +55,10 @@
 - Chromium 1280×900 / 390×844: 주요 조작, 재시작 후 기존 데이터 보존, 화면·페이지 오류 검사 통과.
 - Service Worker를 통한 오프라인 앱 재실행: 통과.
 - 실제 iPhone/iPad Safari, iCloud 공유, 실제 비공개 GitHub 데이터 동기화: 실기기 확인 필요.
+
+## 2026-11-12 폴더블(iPhone Duo)·Mac 최적화 검증
+
+- 변경: `overscroll-behavior: none`, 컨트롤 `touch-action: manipulation`, 펼친 화면(880px 이상) 최근 도서 2열, 시트 폭 제한, Mac(hover/fine 포인터) 전용 hover 표시, 창 크기 변경(접기/펼치기) 시 `resize`를 프레임당 한 번만 재배치, PageUp/PageDown/Space 페이지 넘김 추가. 저장 데이터·키·동기화 계약은 변경 없음. 빌드 표기 `2026.11.12-foldable1`.
+- `npm test` 24개 및 JavaScript 문법 검사: 통과.
+- Chromium 360×780 / 840×760 / 1000×700 / 1440×900: 서재·리더 가로 넘침 없음, 콘솔 오류 없음. 리더를 연 채 창 크기를 360↔840↔1000↔1440으로 바꿔도 본문 폭(약 560px)이 유지됨을 화면으로 확인.
+- 실제 iPhone Duo 접기/펼치기 테스트는 quill에서만 사용자가 수행했으며, 이 앱은 실기기 확인이 아직 필요합니다.

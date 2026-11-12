@@ -1,4 +1,4 @@
-const VERSION = "petal-reader-v1.0.0-2026.09.15-highlighttapzone";
+const VERSION = "petal-reader-v1.0.0-2026.11.12-foldable1";
 const SHELL = [
   "./",
   "./index.html",
