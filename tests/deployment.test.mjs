@@ -95,6 +95,13 @@ test("foldable/wide-screen layout rules and matching build stamps", async () => 
   assert.match(engine, /this\.view\.addEventListener\("click"[\s\S]*page-tap/);
   assert.match(engine, /event\.key === "PageDown"/);
   const stamp = version.match(/APP_BUILD = "([^"]+)"/)[1];
-  assert.equal(stamp, "2026.11.12-foldable3");
+  assert.equal(stamp, "2026.11.12-foldable4");
   assert.ok(sw.includes(`const VERSION = "petal-reader-v1.0.0-${stamp}"`));
+});
+
+test("centered dialogs and landscape sheets respect the safe-area insets", async () => {
+  const css = await read("assets/css/app.css");
+  assert.match(css, /\.dialog-backdrop \{[^}]*padding: max\(16px, env\(safe-area-inset-top\)\) max\(16px, env\(safe-area-inset-right\)\) max\(16px, env\(safe-area-inset-bottom\)\)/);
+  assert.match(css, /\.dialog \{[^}]*max-height: calc\(100dvh - max\(16px, env\(safe-area-inset-top\)\) - max\(16px, env\(safe-area-inset-bottom\)\)\)/);
+  assert.match(css, /@media \(orientation: landscape\) and \(max-height: 500px\) \{[\s\S]*?\.sheet-header \{ padding-top: calc\(10px \+ env\(safe-area-inset-top\)\); \}/);
 });
